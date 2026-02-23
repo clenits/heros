@@ -1,7 +1,8 @@
 import "./style.css";
 
-const GAME_ZIP_PATH = "/static/game/heros.zip";
-const WDOSBOX_PATH = "/static/js-dos/wdosbox.js";
+const BASE_URL = import.meta.env.BASE_URL;
+const GAME_ZIP_PATH = `${BASE_URL}static/game/heros.zip`;
+const WDOSBOX_PATH = `${BASE_URL}static/js-dos/wdosbox.js`;
 const COMMANDS = ["-c", "C:", "-c", "cd GAME", "-c", "HERO"];
 
 const KEY_ALIAS = {
@@ -47,7 +48,7 @@ let dosScriptLoaded = null;
 
 async function loadJsDos() {
   if (!dosScriptLoaded) {
-    dosScriptLoaded = loadScript("/static/js-dos/js-dos.js");
+    dosScriptLoaded = loadScript(`${BASE_URL}static/js-dos/js-dos.js`);
   }
   return dosScriptLoaded;
 }
