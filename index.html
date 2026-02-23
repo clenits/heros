@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heros DOS Web</title>
+  </head>
+  <body>
+    <main class="layout">
+      <header class="header">
+        <h1>Heros (DOS) Web Runner</h1>
+        <p>KOEI 고전 DOS 게임을 브라우저에서 실행합니다.</p>
+      </header>
+      <section class="screen">
+        <canvas id="game-canvas"></canvas>
+      </section>
+      <section class="actions">
+        <button id="start-btn" type="button">게임 시작</button>
+        <button id="fullscreen-btn" type="button">전체화면</button>
+      </section>
+      <section class="tips">
+        <p>방향키는 숫자패드 2/4/6/8로 매핑됩니다.</p>
+        <p>Q/W/E/R 키는 각각 /, *, -, + 로 매핑됩니다.</p>
+      </section>
+      <p id="status" class="status">대기 중</p>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

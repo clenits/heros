@@ -1,0 +1,94 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    "Pretendard Variable",
+    "Apple SD Gothic Neo",
+    "Noto Sans KR",
+    sans-serif;
+  background: #080a0f;
+  color: #e6edf3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, #182131 0%, #080a0f 65%),
+    #080a0f;
+}
+
+body {
+  min-height: 100vh;
+}
+
+.layout {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: 24px 16px 36px;
+  display: grid;
+  gap: 16px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(1.1rem, 3.2vw, 1.7rem);
+}
+
+.header p {
+  margin: 6px 0 0;
+  color: #aebad1;
+}
+
+.screen {
+  border: 1px solid #1f2b3b;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.35);
+}
+
+#game-canvas {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: block;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  border: 1px solid #2d3f57;
+  background: linear-gradient(180deg, #1f2b3b, #16202e);
+  color: #e6edf3;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tips p {
+  margin: 0;
+  color: #b8c4d8;
+  font-size: 0.9rem;
+}
+
+.status {
+  margin: 0;
+  padding: 10px 12px;
+  background: #101925;
+  border: 1px solid #1f2b3b;
+  border-radius: 8px;
+  color: #c7d4ea;
+}
