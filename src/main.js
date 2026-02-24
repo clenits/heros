@@ -1,16 +1,42 @@
-import "./style.css";
+function resolveBaseUrl() {
+  if (
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    import.meta.env.BASE_URL
+  ) {
+    return import.meta.env.BASE_URL;
+  }
 
-const BASE_URL = import.meta.env.BASE_URL;
-const WDOSBOX_PATH = `${BASE_URL}static/js-dos/wdosbox.js`;
+  const path = window.location.pathname;
+  const segments = path.split("/").filter(Boolean);
+  if (segments.length > 0) {
+    return `/${segments[0]}/`;
+  }
+  return "/";
+}
+
+const BASE_URL = resolveBaseUrl();
+const LOCAL_JSDOS_URL = `${BASE_URL}static/js-dos/js-dos.js`;
+const LOCAL_WDOSBOX_URL = `${BASE_URL}static/js-dos/wdosbox.js`;
+const CDN_JSDOS_URL = "https://cdn.jsdelivr.net/npm/js-dos@6.22.60/dist/js-dos.js";
+const CDN_WDOSBOX_URL =
+  "https://cdn.jsdelivr.net/npm/js-dos@6.22.60/dist/wdosbox.js";
+
 const GAMES = {
   heros: {
     name: "영걸전",
-    zipPath: `${BASE_URL}static/game/heros.zip`,
+    zipPathCandidates: [
+      `${BASE_URL}static/game/heros.zip`,
+      `${BASE_URL}heros.zip`,
+    ],
     commands: ["-c", "C:", "-c", "cd GAME", "-c", "HERO"],
   },
   sam4pk: {
     name: "삼국지4PK",
-    zipPath: `${BASE_URL}static/game/Sam4PK.zip`,
+    zipPathCandidates: [
+      `${BASE_URL}static/game/Sam4PK.zip`,
+      `${BASE_URL}Sam4PK.zip`,
+    ],
     commands: ["-c", "C:", "-c", "cd GAME", "-c", "sam4"],
   },
 };
@@ -38,13 +64,16 @@ const state = {
 const canvas = document.querySelector("#game-canvas");
 const selector = document.querySelector("#selector");
 const gameButtons = Array.from(document.querySelectorAll(".selector__button"));
+const startBtn = document.querySelector("#start-btn");
 const screen = document.querySelector("#screen");
 const actions = document.querySelector("#actions");
 const fullscreenBtn = document.querySelector("#fullscreen-btn");
 const status = document.querySelector("#status");
 
 function setStatus(message) {
-  status.textContent = message;
+  if (status) {
+    status.textContent = message;
+  }
 }
 
 function loadScript(src) {
@@ -59,10 +88,22 @@ function loadScript(src) {
 }
 
 let dosScriptLoaded = null;
+let wdosboxUrl = LOCAL_WDOSBOX_URL;
 
 async function loadJsDos() {
   if (!dosScriptLoaded) {
-    dosScriptLoaded = loadScript(`${BASE_URL}static/js-dos/js-dos.js`);
+    dosScriptLoaded = (async () => {
+      try {
+        await loadScript(LOCAL_JSDOS_URL);
+        wdosboxUrl = LOCAL_WDOSBOX_URL;
+      } catch (localError) {
+        await loadScript(CDN_JSDOS_URL);
+        wdosboxUrl = CDN_WDOSBOX_URL;
+      }
+    })().catch((error) => {
+      dosScriptLoaded = null;
+      throw error;
+    });
   }
   return dosScriptLoaded;
 }
@@ -134,22 +175,50 @@ async function createDos(canvasEl) {
     }
     window
       .Dos(canvasEl, {
-        wdosboxUrl: WDOSBOX_PATH,
+        wdosboxUrl,
       })
       .ready((fs, main) => resolve({ fs, main }));
   });
 }
 
 function showGameArea() {
-  selector.classList.add("hidden");
-  screen.classList.remove("hidden");
-  actions.classList.remove("hidden");
+  if (selector) {
+    selector.classList.add("hidden");
+  }
+  if (startBtn) {
+    startBtn.classList.add("hidden");
+  }
+  if (screen) {
+    screen.classList.remove("hidden");
+  }
+  if (actions) {
+    actions.classList.remove("hidden");
+  }
 }
 
 function disableGameSelection(disabled) {
   gameButtons.forEach((button) => {
     button.disabled = disabled;
   });
+  if (startBtn) {
+    startBtn.disabled = disabled;
+  }
+}
+
+async function extractGameZip(fs, pathCandidates) {
+  let lastError = null;
+  for (const path of pathCandidates) {
+    try {
+      await fs.extract(path);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error("게임 파일 경로를 찾지 못했습니다.");
 }
 
 async function startGame(gameId) {
@@ -172,7 +241,7 @@ async function startGame(gameId) {
     const { fs, main } = await createDos(canvas);
 
     setStatus(`${game.name}: 게임 파일 압축 해제 중...`);
-    await fs.extract(game.zipPath);
+    await extractGameZip(fs, game.zipPathCandidates);
 
     setStatus(`${game.name}: 게임 실행 중...`);
     await main(game.commands);
@@ -192,9 +261,18 @@ async function startGame(gameId) {
     state.started = false;
     state.selectedGameId = null;
     disableGameSelection(false);
-    selector.classList.remove("hidden");
-    screen.classList.add("hidden");
-    actions.classList.add("hidden");
+    if (selector) {
+      selector.classList.remove("hidden");
+    }
+    if (startBtn) {
+      startBtn.classList.remove("hidden");
+    }
+    if (screen) {
+      screen.classList.add("hidden");
+    }
+    if (actions) {
+      actions.classList.add("hidden");
+    }
     if (state.restoreAddEventListener) {
       state.restoreAddEventListener();
       state.restoreAddEventListener = null;
@@ -210,7 +288,12 @@ function toggleFullscreen() {
   document.exitFullscreen();
 }
 
-fullscreenBtn.addEventListener("click", toggleFullscreen);
+if (fullscreenBtn) {
+  fullscreenBtn.addEventListener("click", toggleFullscreen);
+}
+if (startBtn) {
+  startBtn.addEventListener("click", () => startGame("heros"));
+}
 gameButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const gameId = button.dataset.gameId;
