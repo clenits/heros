@@ -8,21 +8,28 @@
   <body>
     <main class="layout">
       <header class="header">
-        <h1>Heros (DOS) Web Runner</h1>
-        <p>KOEI 고전 DOS 게임을 브라우저에서 실행합니다.</p>
+        <h1>KOEI DOS Web Runner</h1>
+        <p>실행할 게임을 선택하면 바로 시작됩니다.</p>
       </header>
-      <section class="screen">
+      <section id="selector" class="selector">
+        <button class="selector__button" data-game-id="heros" type="button">
+          영걸전
+        </button>
+        <button class="selector__button" data-game-id="sam4pk" type="button">
+          삼국지4PK
+        </button>
+      </section>
+      <section id="screen" class="screen hidden">
         <canvas id="game-canvas"></canvas>
       </section>
-      <section class="actions">
-        <button id="start-btn" type="button">게임 시작</button>
+      <section id="actions" class="actions hidden">
         <button id="fullscreen-btn" type="button">전체화면</button>
       </section>
       <section class="tips">
         <p>방향키는 숫자패드 2/4/6/8로 매핑됩니다.</p>
         <p>Q/W/E/R 키는 각각 /, *, -, + 로 매핑됩니다.</p>
       </section>
-      <p id="status" class="status">대기 중</p>
+      <p id="status" class="status">게임을 선택하세요.</p>
     </main>
     <script type="module" src="/src/main.js"></script>
   </body>

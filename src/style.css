@@ -44,6 +44,28 @@ body {
   color: #aebad1;
 }
 
+.selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.selector__button {
+  border: 1px solid #2d3f57;
+  background: linear-gradient(180deg, #25364f, #172334);
+  color: #e6edf3;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.selector__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .screen {
   border: 1px solid #1f2b3b;
   border-radius: 12px;
@@ -91,4 +113,14 @@ body {
   border: 1px solid #1f2b3b;
   border-radius: 8px;
   color: #c7d4ea;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .selector {
+    grid-template-columns: 1fr;
+  }
 }

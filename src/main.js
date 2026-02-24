@@ -1,9 +1,19 @@
 import "./style.css";
 
 const BASE_URL = import.meta.env.BASE_URL;
-const GAME_ZIP_PATH = `${BASE_URL}static/game/heros.zip`;
 const WDOSBOX_PATH = `${BASE_URL}static/js-dos/wdosbox.js`;
-const COMMANDS = ["-c", "C:", "-c", "cd GAME", "-c", "HERO"];
+const GAMES = {
+  heros: {
+    name: "영걸전",
+    zipPath: `${BASE_URL}static/game/heros.zip`,
+    commands: ["-c", "C:", "-c", "cd GAME", "-c", "HERO"],
+  },
+  sam4pk: {
+    name: "삼국지4PK",
+    zipPath: `${BASE_URL}static/game/Sam4PK.zip`,
+    commands: ["-c", "C:", "-c", "cd GAME", "-c", "sam4"],
+  },
+};
 
 const KEY_ALIAS = {
   KeyR: 107, // +
@@ -19,13 +29,17 @@ const KEY_ALIAS = {
 
 const state = {
   started: false,
+  selectedGameId: null,
   keydownHandlers: [],
   keyupHandlers: [],
   restoreAddEventListener: null,
 };
 
 const canvas = document.querySelector("#game-canvas");
-const startBtn = document.querySelector("#start-btn");
+const selector = document.querySelector("#selector");
+const gameButtons = Array.from(document.querySelectorAll(".selector__button"));
+const screen = document.querySelector("#screen");
+const actions = document.querySelector("#actions");
 const fullscreenBtn = document.querySelector("#fullscreen-btn");
 const status = document.querySelector("#status");
 
@@ -126,23 +140,42 @@ async function createDos(canvasEl) {
   });
 }
 
-async function startGame() {
+function showGameArea() {
+  selector.classList.add("hidden");
+  screen.classList.remove("hidden");
+  actions.classList.remove("hidden");
+}
+
+function disableGameSelection(disabled) {
+  gameButtons.forEach((button) => {
+    button.disabled = disabled;
+  });
+}
+
+async function startGame(gameId) {
+  const game = GAMES[gameId];
+  if (!game) {
+    setStatus("알 수 없는 게임입니다.");
+    return;
+  }
   if (state.started) {
     return;
   }
+  state.selectedGameId = gameId;
   state.started = true;
-  startBtn.disabled = true;
+  disableGameSelection(true);
+  showGameArea();
 
   try {
-    setStatus("에뮬레이터 로딩 중...");
+    setStatus(`${game.name}: 에뮬레이터 로딩 중...`);
     blockAddEventListener();
     const { fs, main } = await createDos(canvas);
 
-    setStatus("게임 파일 압축 해제 중...");
-    await fs.extract(GAME_ZIP_PATH);
+    setStatus(`${game.name}: 게임 파일 압축 해제 중...`);
+    await fs.extract(game.zipPath);
 
-    setStatus("게임 실행 중...");
-    await main(COMMANDS);
+    setStatus(`${game.name}: 게임 실행 중...`);
+    await main(game.commands);
 
     if (state.restoreAddEventListener) {
       state.restoreAddEventListener();
@@ -152,12 +185,16 @@ async function startGame() {
     document.addEventListener("keydown", onDocumentKeyDown);
     document.addEventListener("keyup", onDocumentKeyUp);
 
-    setStatus("실행됨");
+    setStatus(`${game.name}: 실행됨`);
   } catch (error) {
     console.error(error);
     setStatus("실패: 콘솔 로그를 확인하세요.");
     state.started = false;
-    startBtn.disabled = false;
+    state.selectedGameId = null;
+    disableGameSelection(false);
+    selector.classList.remove("hidden");
+    screen.classList.add("hidden");
+    actions.classList.add("hidden");
     if (state.restoreAddEventListener) {
       state.restoreAddEventListener();
       state.restoreAddEventListener = null;
@@ -173,5 +210,13 @@ function toggleFullscreen() {
   document.exitFullscreen();
 }
 
-startBtn.addEventListener("click", startGame);
 fullscreenBtn.addEventListener("click", toggleFullscreen);
+gameButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const gameId = button.dataset.gameId;
+    if (!gameId) {
+      return;
+    }
+    startGame(gameId);
+  });
+});

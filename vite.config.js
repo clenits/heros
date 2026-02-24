@@ -16,6 +16,10 @@ export default defineConfig({
           src: "heros.zip",
           dest: "static/game",
         },
+        {
+          src: "Sam4PK.zip",
+          dest: "static/game",
+        },
       ],
     }),
   ],

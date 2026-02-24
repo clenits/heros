@@ -1,11 +1,11 @@
 # Heros DOS Web
 
-`wan2land/unchartedwaters2`의 실행 구조를 기반으로, 로컬 `heros.zip`을 브라우저에서 실행하도록 구성한 프로젝트입니다.
+`wan2land/unchartedwaters2`의 실행 구조를 기반으로, DOS 게임 ZIP을 브라우저에서 실행하도록 구성한 프로젝트입니다.
 
 ## 참고 구현에서 가져온 핵심 방식
 
 - `js-dos` 런타임(`js-dos.js`, `wdosbox.js`) 정적 배포
-- `fs.extract(zip)`으로 게임 압축 해제
+- `fs.extract(zip)`으로 선택한 게임 압축 해제
 - `main(["-c", ...])` 부트 커맨드 실행
 - 브라우저 키 입력을 숫자패드 코드로 매핑(방향키, Q/W/E/R)
 
@@ -15,6 +15,11 @@
 npm install
 npm run dev
 ```
+
+첫 화면에서 게임을 선택하면 해당 게임이 바로 실행됩니다.
+
+- `영걸전` -> `heros.zip` (`HERO` 실행)
+- `삼국지4PK` -> `Sam4PK.zip` (`sam4` 실행)
 
 ## 빌드
 
