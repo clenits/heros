@@ -124,16 +124,20 @@ function loadScript(src) {
 
 let dosScriptLoaded = null;
 let wdosboxUrl = LOCAL_WDOSBOX_URL;
+let usingCdnRuntime = false;
+const RUNTIME_CACHE_BUSTER = Date.now().toString(36);
 
 async function loadJsDos() {
   if (!dosScriptLoaded) {
     dosScriptLoaded = (async () => {
       try {
-        await loadScript(LOCAL_JSDOS_URL);
-        wdosboxUrl = LOCAL_WDOSBOX_URL;
+        await loadScript(`${LOCAL_JSDOS_URL}?cb=${RUNTIME_CACHE_BUSTER}`);
+        wdosboxUrl = `${LOCAL_WDOSBOX_URL}?cb=${RUNTIME_CACHE_BUSTER}`;
+        usingCdnRuntime = false;
       } catch (localError) {
-        await loadScript(CDN_JSDOS_URL);
-        wdosboxUrl = CDN_WDOSBOX_URL;
+        await loadScript(`${CDN_JSDOS_URL}?cb=${RUNTIME_CACHE_BUSTER}`);
+        wdosboxUrl = `${CDN_WDOSBOX_URL}?cb=${RUNTIME_CACHE_BUSTER}`;
+        usingCdnRuntime = true;
       }
     })().catch((error) => {
       dosScriptLoaded = null;
@@ -470,7 +474,7 @@ function resolveZipCandidates(game) {
   const candidates = [...game.zipPathCandidates];
 
   // Source-branch Pages mode often uses CDN js-dos and root-level zip files.
-  if (wdosboxUrl === CDN_WDOSBOX_URL) {
+  if (usingCdnRuntime) {
     return candidates.reverse();
   }
 
