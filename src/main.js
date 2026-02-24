@@ -92,7 +92,6 @@ const PRIMARY_MOUSE_BUTTON = 0;
 const SECONDARY_MOUSE_BUTTON = 2;
 const TAP_MAX_MOVEMENT = 18;
 const TAP_MAX_DURATION = 450;
-const DOUBLE_TAP_MAX_DELAY = 260;
 const SCRIPT_LOAD_TIMEOUT = 12000;
 const DOS_READY_TIMEOUT = 45000;
 const DOS_PROGRESS_STALL_TIMEOUT = 15000;
@@ -105,10 +104,6 @@ const touchState = {
   clientY: 0,
   startedAt: 0,
   moved: false,
-  lastTapAt: 0,
-  lastTapX: 0,
-  lastTapY: 0,
-  pendingSingleTapTimeout: null,
 };
 
 function setStatus(message) {
@@ -504,23 +499,10 @@ function distance(x1, y1, x2, y2) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-function clearPendingSingleTap() {
-  if (touchState.pendingSingleTapTimeout !== null) {
-    window.clearTimeout(touchState.pendingSingleTapTimeout);
-    touchState.pendingSingleTapTimeout = null;
-  }
-}
-
 function triggerLeftClickAt(clientX, clientY) {
   sendMouseMove(clientX, clientY);
   sendMouseButton("mousedown", PRIMARY_MOUSE_BUTTON, clientX, clientY);
   sendMouseButton("mouseup", PRIMARY_MOUSE_BUTTON, clientX, clientY);
-}
-
-function triggerRightClickAt(clientX, clientY) {
-  sendMouseMove(clientX, clientY);
-  sendMouseButton("mousedown", SECONDARY_MOUSE_BUTTON, clientX, clientY);
-  sendMouseButton("mouseup", SECONDARY_MOUSE_BUTTON, clientX, clientY);
 }
 
 function pressVirtualButton(button) {
@@ -775,34 +757,11 @@ if (canvas) {
 
     event.preventDefault();
 
-    const now = Date.now();
-    const isTap = !touchState.moved && now - touchState.startedAt <= TAP_MAX_DURATION;
+    const isTap =
+      !touchState.moved && Date.now() - touchState.startedAt <= TAP_MAX_DURATION;
 
     if (isTap) {
-      const isDoubleTap =
-        touchState.lastTapAt > 0 &&
-        now - touchState.lastTapAt <= DOUBLE_TAP_MAX_DELAY &&
-        distance(
-          touchState.lastTapX,
-          touchState.lastTapY,
-          event.clientX,
-          event.clientY,
-        ) <= TAP_MAX_MOVEMENT;
-
-      if (isDoubleTap) {
-        clearPendingSingleTap();
-        triggerRightClickAt(event.clientX, event.clientY);
-        touchState.lastTapAt = 0;
-      } else {
-        touchState.lastTapAt = now;
-        touchState.lastTapX = event.clientX;
-        touchState.lastTapY = event.clientY;
-        clearPendingSingleTap();
-        touchState.pendingSingleTapTimeout = window.setTimeout(() => {
-          triggerLeftClickAt(touchState.lastTapX, touchState.lastTapY);
-          touchState.pendingSingleTapTimeout = null;
-        }, DOUBLE_TAP_MAX_DELAY);
-      }
+      triggerLeftClickAt(event.clientX, event.clientY);
     }
 
     touchState.pointerId = null;
@@ -853,7 +812,6 @@ window.addEventListener("orientationchange", updatePlayAreaLayout);
 document.addEventListener("fullscreenchange", updatePlayAreaLayout);
 window.addEventListener("blur", releaseAllVirtualButtons);
 window.addEventListener("blur", () => {
-  clearPendingSingleTap();
   if (touchState.pointerId !== null) {
     touchState.pointerId = null;
   }
@@ -861,7 +819,6 @@ window.addEventListener("blur", () => {
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     releaseAllVirtualButtons();
-    clearPendingSingleTap();
     if (touchState.pointerId !== null) {
       touchState.pointerId = null;
     }
