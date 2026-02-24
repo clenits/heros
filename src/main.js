@@ -409,8 +409,10 @@ function toggleFullscreen() {
   document.exitFullscreen();
 }
 
-if (fullscreenBtn) {
-  fullscreenBtn.addEventListener("click", toggleFullscreen);
+if (canvas) {
+  canvas.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
 }
 gameButtons.forEach((button) => {
   button.addEventListener("click", () => {
