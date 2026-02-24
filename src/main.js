@@ -17,7 +17,10 @@ function resolveBaseUrl() {
 
 const BASE_URL = resolveBaseUrl();
 const LOCAL_JSDOS_URL = `${BASE_URL}static/js-dos/js-dos.js`;
+const LOCAL_WDOSBOX_URL = `${BASE_URL}static/js-dos/wdosbox.js`;
 const CDN_JSDOS_URL = "https://cdn.jsdelivr.net/npm/js-dos@6.22.60/dist/js-dos.js";
+const CDN_WDOSBOX_URL =
+  "https://cdn.jsdelivr.net/npm/js-dos@6.22.60/dist/wdosbox.js";
 
 const GAMES = {
   heros: {
@@ -85,14 +88,17 @@ function loadScript(src) {
 }
 
 let dosScriptLoaded = null;
+let wdosboxUrl = LOCAL_WDOSBOX_URL;
 
 async function loadJsDos() {
   if (!dosScriptLoaded) {
     dosScriptLoaded = (async () => {
       try {
         await loadScript(LOCAL_JSDOS_URL);
+        wdosboxUrl = LOCAL_WDOSBOX_URL;
       } catch (localError) {
         await loadScript(CDN_JSDOS_URL);
+        wdosboxUrl = CDN_WDOSBOX_URL;
       }
     })().catch((error) => {
       dosScriptLoaded = null;
@@ -176,14 +182,18 @@ async function createDos(canvasEl) {
       }
     }, 20000);
 
-    window.Dos(canvasEl).ready((fs, main) => {
+    window
+      .Dos(canvasEl, {
+        wdosboxUrl,
+      })
+      .ready((fs, main) => {
       if (settled) {
         return;
       }
       settled = true;
       window.clearTimeout(timeout);
       resolve({ fs, main });
-    });
+      });
   });
 }
 
