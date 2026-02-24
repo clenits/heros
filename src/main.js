@@ -53,6 +53,16 @@ const KEY_ALIAS = {
   ArrowDown: 98,
 };
 
+const VIRTUAL_KEY_CODE = {
+  ArrowLeft: 100,
+  ArrowUp: 104,
+  ArrowRight: 102,
+  ArrowDown: 98,
+  Enter: 13,
+  Escape: 27,
+  Space: 32,
+};
+
 const state = {
   started: false,
   selectedGameId: null,
@@ -64,11 +74,12 @@ const state = {
 const canvas = document.querySelector("#game-canvas");
 const selector = document.querySelector("#selector");
 const gameButtons = Array.from(document.querySelectorAll(".selector__button"));
-const startBtn = document.querySelector("#start-btn");
-const screen = document.querySelector("#screen");
+const playArea = document.querySelector("#play-area");
+const virtualButtons = Array.from(document.querySelectorAll(".vkey"));
 const actions = document.querySelector("#actions");
 const fullscreenBtn = document.querySelector("#fullscreen-btn");
 const status = document.querySelector("#status");
+const pressedVirtualButtons = new Map();
 
 function setStatus(message) {
   if (status) {
@@ -201,24 +212,63 @@ function showGameArea() {
   if (selector) {
     selector.classList.add("hidden");
   }
-  if (startBtn) {
-    startBtn.classList.add("hidden");
-  }
-  if (screen) {
-    screen.classList.remove("hidden");
+  if (playArea) {
+    playArea.classList.remove("hidden");
   }
   if (actions) {
     actions.classList.remove("hidden");
   }
+  updatePlayAreaLayout();
 }
 
 function disableGameSelection(disabled) {
   gameButtons.forEach((button) => {
     button.disabled = disabled;
   });
-  if (startBtn) {
-    startBtn.disabled = disabled;
+}
+
+function updatePlayAreaLayout() {
+  if (!playArea) {
+    return;
   }
+  const isLandscape = window.innerWidth > window.innerHeight;
+  playArea.classList.toggle("play-area--landscape", isLandscape);
+  playArea.classList.toggle("play-area--portrait", !isLandscape);
+}
+
+function pressVirtualButton(button) {
+  const keyName = button.dataset.key;
+  if (!keyName) {
+    return;
+  }
+  const code = VIRTUAL_KEY_CODE[keyName];
+  if (!code) {
+    return;
+  }
+  if (pressedVirtualButtons.has(button)) {
+    return;
+  }
+
+  pressedVirtualButtons.set(button, code);
+  button.classList.add("vkey--active");
+  sendMappedKey("keydown", code);
+}
+
+function releaseVirtualButton(button) {
+  const code = pressedVirtualButtons.get(button);
+  if (!code) {
+    return;
+  }
+
+  sendMappedKey("keyup", code);
+  pressedVirtualButtons.delete(button);
+  button.classList.remove("vkey--active");
+}
+
+function releaseAllVirtualButtons() {
+  Array.from(pressedVirtualButtons.keys()).forEach((button) => {
+    releaseVirtualButton(button);
+  });
 }
 
 async function extractGameZip(fs, pathCandidates) {
@@ -280,11 +330,8 @@ async function startGame(gameId) {
     if (selector) {
       selector.classList.remove("hidden");
     }
-    if (startBtn) {
-      startBtn.classList.remove("hidden");
-    }
-    if (screen) {
-      screen.classList.add("hidden");
+    if (playArea) {
+      playArea.classList.add("hidden");
     }
     if (actions) {
       actions.classList.add("hidden");
@@ -307,9 +354,6 @@ function toggleFullscreen() {
 if (fullscreenBtn) {
   fullscreenBtn.addEventListener("click", toggleFullscreen);
 }
-if (startBtn) {
-  startBtn.addEventListener("click", () => startGame("heros"));
-}
 gameButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const gameId = button.dataset.gameId;
@@ -319,3 +363,29 @@ gameButtons.forEach((button) => {
     startGame(gameId);
   });
 });
+
+virtualButtons.forEach((button) => {
+  button.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    if (button.setPointerCapture) {
+      button.setPointerCapture(event.pointerId);
+    }
+    pressVirtualButton(button);
+  });
+
+  const release = () => releaseVirtualButton(button);
+  button.addEventListener("pointerup", release);
+  button.addEventListener("pointercancel", release);
+  button.addEventListener("pointerleave", release);
+});
+
+window.addEventListener("resize", updatePlayAreaLayout);
+window.addEventListener("orientationchange", updatePlayAreaLayout);
+window.addEventListener("blur", releaseAllVirtualButtons);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    releaseAllVirtualButtons();
+  }
+});
+
+updatePlayAreaLayout();

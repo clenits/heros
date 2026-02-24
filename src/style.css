@@ -80,6 +80,83 @@ body {
   display: block;
 }
 
+.play-area {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+
+.play-area--landscape {
+  grid-template-columns: minmax(0, 1fr) 180px;
+}
+
+.play-area--portrait {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+}
+
+.mobile-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, 52px);
+  gap: 6px;
+}
+
+.dpad .vkey[data-key="ArrowUp"] {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.dpad .vkey[data-key="ArrowLeft"] {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.dpad .vkey[data-key="ArrowDown"] {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.dpad .vkey[data-key="ArrowRight"] {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.action-pad {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.vkey {
+  border: 1px solid #2e445f;
+  background: linear-gradient(180deg, #203349, #152338);
+  color: #e6edf3;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  height: 52px;
+  touch-action: manipulation;
+}
+
+.vkey--wide {
+  grid-column: 1 / -1;
+}
+
+.vkey--active {
+  background: linear-gradient(180deg, #2d5077, #1f3852);
+  border-color: #4e7aa5;
+}
+
 .actions {
   display: flex;
   gap: 8px;
@@ -122,5 +199,14 @@ body {
 @media (max-width: 640px) {
   .selector {
     grid-template-columns: 1fr;
+  }
+
+  .dpad {
+    grid-template-rows: repeat(3, 46px);
+  }
+
+  .vkey {
+    height: 46px;
+    font-size: 0.88rem;
   }
 }

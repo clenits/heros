@@ -20,8 +20,33 @@
           삼국지4PK
         </button>
       </section>
-      <section id="screen" class="screen hidden">
-        <canvas id="game-canvas"></canvas>
+      <section id="play-area" class="play-area hidden">
+        <section id="screen" class="screen">
+          <canvas id="game-canvas"></canvas>
+        </section>
+        <section id="mobile-controls" class="mobile-controls">
+          <div class="dpad">
+            <button class="vkey vkey--arrow" data-key="ArrowUp" type="button">
+              ↑
+            </button>
+            <button class="vkey vkey--arrow" data-key="ArrowLeft" type="button">
+              ←
+            </button>
+            <button class="vkey vkey--arrow" data-key="ArrowDown" type="button">
+              ↓
+            </button>
+            <button class="vkey vkey--arrow" data-key="ArrowRight" type="button">
+              →
+            </button>
+          </div>
+          <div class="action-pad">
+            <button class="vkey" data-key="Enter" type="button">Enter</button>
+            <button class="vkey" data-key="Escape" type="button">Esc</button>
+            <button class="vkey vkey--wide" data-key="Space" type="button">
+              Space
+            </button>
+          </div>
+        </section>
       </section>
       <section id="actions" class="actions hidden">
         <button id="fullscreen-btn" type="button">전체화면</button>
