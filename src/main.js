@@ -150,7 +150,8 @@ function loadScript(src) {
 let dosScriptLoaded = null;
 let usingCdnRuntime = false;
 // Bump this string only when runtime cache must be invalidated across deployments.
-const RUNTIME_CACHE_BUSTER = "runtime-v1";
+const RUNTIME_CACHE_BUSTER = "runtime-v2";
+const ZIP_CACHE_BUSTER = "zip-v2";
 const JSDOS_CACHE_DB_PREFIX = "js-dos-cache (";
 const KNOWN_JSDOS_CACHE_DB = "js-dos-cache (6.22.60 (c3627d34f97fcc6e98ceef7fbea6e090))";
 
@@ -569,54 +570,20 @@ function releaseAllVirtualButtons() {
   });
 }
 
-async function isZipCandidateAvailable(path) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 5000);
-  try {
-    const response = await fetch(path, {
-      method: "HEAD",
-      cache: "no-store",
-      signal: controller.signal,
-    });
-    window.clearTimeout(timeoutId);
-    if (!response.ok) {
-      return false;
-    }
-
-    const contentType = (response.headers.get("content-type") || "").toLowerCase();
-    if (contentType.includes("text/html")) {
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    window.clearTimeout(timeoutId);
-    return false;
-  }
+function resolveZipCandidates(game) {
+  return [...game.zipPathCandidates];
 }
 
-function resolveZipCandidates(game) {
-  const candidates = [...game.zipPathCandidates];
-
-  // Source-branch Pages mode often uses CDN js-dos and root-level zip files.
-  if (usingCdnRuntime) {
-    return candidates.reverse();
-  }
-
-  return candidates;
+function appendCacheBuster(path, buster) {
+  return `${path}${path.includes("?") ? "&" : "?"}cb=${buster}`;
 }
 
 async function extractGameZip(fs, game) {
   const pathCandidates = resolveZipCandidates(game);
   let lastError = null;
   for (const path of pathCandidates) {
-    const canUse = await isZipCandidateAvailable(path);
-    if (!canUse) {
-      continue;
-    }
-
     try {
-      await fs.extract(path);
+      await fs.extract(appendCacheBuster(path, ZIP_CACHE_BUSTER));
       return;
     } catch (error) {
       lastError = error;
