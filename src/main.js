@@ -85,6 +85,13 @@ const PLAY_PADDING = 16;
 const PLAY_GAP = 12;
 const FALLBACK_CONTROLS_WIDTH = 180;
 const FALLBACK_CONTROLS_HEIGHT = 120;
+const PRIMARY_MOUSE_BUTTON = 0;
+
+const touchState = {
+  pointerId: null,
+  clientX: 0,
+  clientY: 0,
+};
 
 function setStatus(message) {
   if (status) {
@@ -289,14 +296,14 @@ function updatePlayAreaLayout() {
   canvas.style.height = `${fit.height}px`;
 }
 
-function createMouseEvent(type, button) {
+function createMouseEvent(type, button, clientX, clientY) {
   if (!canvas) {
     return null;
   }
 
   const rect = canvas.getBoundingClientRect();
-  const clientX = rect.left + rect.width / 2;
-  const clientY = rect.top + rect.height / 2;
+  const x = clientX ?? rect.left + rect.width / 2;
+  const y = clientY ?? rect.top + rect.height / 2;
   const buttons = type === "mouseup" ? 0 : button === 2 ? 2 : 1;
 
   return new MouseEvent(type, {
@@ -305,16 +312,27 @@ function createMouseEvent(type, button) {
     view: window,
     button,
     buttons,
-    clientX,
-    clientY,
+    clientX: x,
+    clientY: y,
   });
 }
 
-function sendMouseButton(type, button) {
+function sendMouseButton(type, button, clientX, clientY) {
   if (!canvas) {
     return;
   }
-  const event = createMouseEvent(type, button);
+  const event = createMouseEvent(type, button, clientX, clientY);
+  if (!event) {
+    return;
+  }
+  canvas.dispatchEvent(event);
+}
+
+function sendMouseMove(clientX, clientY) {
+  if (!canvas) {
+    return;
+  }
+  const event = createMouseEvent("mousemove", PRIMARY_MOUSE_BUTTON, clientX, clientY);
   if (!event) {
     return;
   }
@@ -514,6 +532,69 @@ if (canvas) {
   canvas.addEventListener("contextmenu", (event) => {
     event.preventDefault();
   });
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+    if (touchState.pointerId !== null) {
+      return;
+    }
+
+    event.preventDefault();
+    touchState.pointerId = event.pointerId;
+    touchState.clientX = event.clientX;
+    touchState.clientY = event.clientY;
+
+    if (canvas.setPointerCapture) {
+      canvas.setPointerCapture(event.pointerId);
+    }
+
+    canvas.focus?.();
+    sendMouseMove(event.clientX, event.clientY);
+    sendMouseButton(
+      "mousedown",
+      PRIMARY_MOUSE_BUTTON,
+      event.clientX,
+      event.clientY,
+    );
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+    if (touchState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    touchState.clientX = event.clientX;
+    touchState.clientY = event.clientY;
+    sendMouseMove(event.clientX, event.clientY);
+  });
+
+  const releaseTouchPointer = (event) => {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+    if (touchState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    sendMouseButton(
+      "mouseup",
+      PRIMARY_MOUSE_BUTTON,
+      event.clientX,
+      event.clientY,
+    );
+
+    touchState.pointerId = null;
+  };
+
+  canvas.addEventListener("pointerup", releaseTouchPointer);
+  canvas.addEventListener("pointercancel", releaseTouchPointer);
 }
 gameButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -544,9 +625,29 @@ window.addEventListener("resize", updatePlayAreaLayout);
 window.addEventListener("orientationchange", updatePlayAreaLayout);
 document.addEventListener("fullscreenchange", updatePlayAreaLayout);
 window.addEventListener("blur", releaseAllVirtualButtons);
+window.addEventListener("blur", () => {
+  if (touchState.pointerId !== null) {
+    sendMouseButton(
+      "mouseup",
+      PRIMARY_MOUSE_BUTTON,
+      touchState.clientX,
+      touchState.clientY,
+    );
+    touchState.pointerId = null;
+  }
+});
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     releaseAllVirtualButtons();
+    if (touchState.pointerId !== null) {
+      sendMouseButton(
+        "mouseup",
+        PRIMARY_MOUSE_BUTTON,
+        touchState.clientX,
+        touchState.clientY,
+      );
+      touchState.pointerId = null;
+    }
   }
 });
 

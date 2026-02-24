@@ -100,6 +100,7 @@ body.playing {
   width: 100%;
   aspect-ratio: 4 / 3;
   display: block;
+  touch-action: none;
 }
 
 .play-area {
