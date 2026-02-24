@@ -125,7 +125,10 @@ function loadScript(src) {
 let dosScriptLoaded = null;
 let wdosboxUrl = LOCAL_WDOSBOX_URL;
 let usingCdnRuntime = false;
-const RUNTIME_CACHE_BUSTER = Date.now().toString(36);
+// Bump this string only when runtime cache must be invalidated across deployments.
+const RUNTIME_CACHE_BUSTER = "runtime-v1";
+const JSDOS_CACHE_DB_PREFIX = "js-dos-cache (";
+const KNOWN_JSDOS_CACHE_DB = "js-dos-cache (6.22.60 (c3627d34f97fcc6e98ceef7fbea6e090))";
 
 async function loadJsDos() {
   if (!dosScriptLoaded) {
@@ -145,6 +148,41 @@ async function loadJsDos() {
     });
   }
   return dosScriptLoaded;
+}
+
+function deleteIndexedDb(name) {
+  return new Promise((resolve) => {
+    try {
+      const request = window.indexedDB.deleteDatabase(name);
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+      request.onblocked = () => resolve();
+    } catch (error) {
+      resolve();
+    }
+  });
+}
+
+async function clearJsDosRuntimeCache() {
+  if (!window.indexedDB) {
+    return;
+  }
+
+  const names = new Set([KNOWN_JSDOS_CACHE_DB]);
+  if (typeof window.indexedDB.databases === "function") {
+    try {
+      const databases = await window.indexedDB.databases();
+      databases.forEach((database) => {
+        if (database.name && database.name.startsWith(JSDOS_CACHE_DB_PREFIX)) {
+          names.add(database.name);
+        }
+      });
+    } catch (error) {
+      // keep fallback name only
+    }
+  }
+
+  await Promise.all(Array.from(names).map((name) => deleteIndexedDb(name)));
 }
 
 function blockAddEventListener() {
@@ -205,7 +243,7 @@ function onDocumentKeyUp(event) {
   sendMappedKey("keyup", code);
 }
 
-async function createDos(canvasEl) {
+async function createDosRuntime(canvasEl) {
   await loadJsDos();
   return new Promise((resolve, reject) => {
     if (!window.Dos) {
@@ -234,6 +272,17 @@ async function createDos(canvasEl) {
       resolve({ fs, main });
       });
   });
+}
+
+async function createDos(canvasEl) {
+  try {
+    return await createDosRuntime(canvasEl);
+  } catch (firstError) {
+    setStatus("에뮬레이터 캐시 복구 중...");
+    await clearJsDosRuntimeCache();
+    dosScriptLoaded = null;
+    return await createDosRuntime(canvasEl);
+  }
 }
 
 function showGameArea() {
