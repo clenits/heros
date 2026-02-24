@@ -86,11 +86,23 @@ const PLAY_GAP = 12;
 const FALLBACK_CONTROLS_WIDTH = 180;
 const FALLBACK_CONTROLS_HEIGHT = 120;
 const PRIMARY_MOUSE_BUTTON = 0;
+const SECONDARY_MOUSE_BUTTON = 2;
+const TAP_MAX_MOVEMENT = 18;
+const TAP_MAX_DURATION = 450;
+const DOUBLE_TAP_MAX_DELAY = 260;
 
 const touchState = {
   pointerId: null,
+  startX: 0,
+  startY: 0,
   clientX: 0,
   clientY: 0,
+  startedAt: 0,
+  moved: false,
+  lastTapAt: 0,
+  lastTapX: 0,
+  lastTapY: 0,
+  pendingSingleTapTimeout: null,
 };
 
 function setStatus(message) {
@@ -339,6 +351,31 @@ function sendMouseMove(clientX, clientY) {
   canvas.dispatchEvent(event);
 }
 
+function distance(x1, y1, x2, y2) {
+  const dx = x1 - x2;
+  const dy = y1 - y2;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function clearPendingSingleTap() {
+  if (touchState.pendingSingleTapTimeout !== null) {
+    window.clearTimeout(touchState.pendingSingleTapTimeout);
+    touchState.pendingSingleTapTimeout = null;
+  }
+}
+
+function triggerLeftClickAt(clientX, clientY) {
+  sendMouseMove(clientX, clientY);
+  sendMouseButton("mousedown", PRIMARY_MOUSE_BUTTON, clientX, clientY);
+  sendMouseButton("mouseup", PRIMARY_MOUSE_BUTTON, clientX, clientY);
+}
+
+function triggerRightClickAt(clientX, clientY) {
+  sendMouseMove(clientX, clientY);
+  sendMouseButton("mousedown", SECONDARY_MOUSE_BUTTON, clientX, clientY);
+  sendMouseButton("mouseup", SECONDARY_MOUSE_BUTTON, clientX, clientY);
+}
+
 function pressVirtualButton(button) {
   if (button.dataset.action === "fullscreen") {
     button.classList.add("vkey--active");
@@ -543,21 +580,18 @@ if (canvas) {
 
     event.preventDefault();
     touchState.pointerId = event.pointerId;
+    touchState.startX = event.clientX;
+    touchState.startY = event.clientY;
     touchState.clientX = event.clientX;
     touchState.clientY = event.clientY;
+    touchState.startedAt = Date.now();
+    touchState.moved = false;
 
     if (canvas.setPointerCapture) {
       canvas.setPointerCapture(event.pointerId);
     }
 
     canvas.focus?.();
-    sendMouseMove(event.clientX, event.clientY);
-    sendMouseButton(
-      "mousedown",
-      PRIMARY_MOUSE_BUTTON,
-      event.clientX,
-      event.clientY,
-    );
   });
 
   canvas.addEventListener("pointermove", (event) => {
@@ -571,6 +605,16 @@ if (canvas) {
     event.preventDefault();
     touchState.clientX = event.clientX;
     touchState.clientY = event.clientY;
+    if (
+      distance(
+        touchState.startX,
+        touchState.startY,
+        event.clientX,
+        event.clientY,
+      ) > TAP_MAX_MOVEMENT
+    ) {
+      touchState.moved = true;
+    }
     sendMouseMove(event.clientX, event.clientY);
   });
 
@@ -583,18 +627,54 @@ if (canvas) {
     }
 
     event.preventDefault();
-    sendMouseButton(
-      "mouseup",
-      PRIMARY_MOUSE_BUTTON,
-      event.clientX,
-      event.clientY,
-    );
+
+    const now = Date.now();
+    const isTap = !touchState.moved && now - touchState.startedAt <= TAP_MAX_DURATION;
+
+    if (isTap) {
+      const isDoubleTap =
+        touchState.lastTapAt > 0 &&
+        now - touchState.lastTapAt <= DOUBLE_TAP_MAX_DELAY &&
+        distance(
+          touchState.lastTapX,
+          touchState.lastTapY,
+          event.clientX,
+          event.clientY,
+        ) <= TAP_MAX_MOVEMENT;
+
+      if (isDoubleTap) {
+        clearPendingSingleTap();
+        triggerRightClickAt(event.clientX, event.clientY);
+        touchState.lastTapAt = 0;
+      } else {
+        touchState.lastTapAt = now;
+        touchState.lastTapX = event.clientX;
+        touchState.lastTapY = event.clientY;
+        clearPendingSingleTap();
+        touchState.pendingSingleTapTimeout = window.setTimeout(() => {
+          triggerLeftClickAt(touchState.lastTapX, touchState.lastTapY);
+          touchState.pendingSingleTapTimeout = null;
+        }, DOUBLE_TAP_MAX_DELAY);
+      }
+    }
 
     touchState.pointerId = null;
+    touchState.moved = false;
+  };
+
+  const cancelTouchPointer = (event) => {
+    if (event.pointerType !== "touch") {
+      return;
+    }
+    if (touchState.pointerId !== event.pointerId) {
+      return;
+    }
+    touchState.pointerId = null;
+    touchState.moved = false;
   };
 
   canvas.addEventListener("pointerup", releaseTouchPointer);
-  canvas.addEventListener("pointercancel", releaseTouchPointer);
+  canvas.addEventListener("pointercancel", cancelTouchPointer);
 }
 gameButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -626,26 +706,16 @@ window.addEventListener("orientationchange", updatePlayAreaLayout);
 document.addEventListener("fullscreenchange", updatePlayAreaLayout);
 window.addEventListener("blur", releaseAllVirtualButtons);
 window.addEventListener("blur", () => {
+  clearPendingSingleTap();
   if (touchState.pointerId !== null) {
-    sendMouseButton(
-      "mouseup",
-      PRIMARY_MOUSE_BUTTON,
-      touchState.clientX,
-      touchState.clientY,
-    );
     touchState.pointerId = null;
   }
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     releaseAllVirtualButtons();
+    clearPendingSingleTap();
     if (touchState.pointerId !== null) {
-      sendMouseButton(
-        "mouseup",
-        PRIMARY_MOUSE_BUTTON,
-        touchState.clientX,
-        touchState.clientY,
-      );
       touchState.pointerId = null;
     }
   }
