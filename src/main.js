@@ -386,11 +386,15 @@ function releaseAllVirtualButtons() {
 }
 
 async function isZipCandidateAvailable(path) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 5000);
   try {
     const response = await fetch(path, {
       method: "HEAD",
       cache: "no-store",
+      signal: controller.signal,
     });
+    window.clearTimeout(timeoutId);
     if (!response.ok) {
       return false;
     }
@@ -402,11 +406,24 @@ async function isZipCandidateAvailable(path) {
 
     return true;
   } catch (error) {
+    window.clearTimeout(timeoutId);
     return false;
   }
 }
 
-async function extractGameZip(fs, pathCandidates) {
+function resolveZipCandidates(game) {
+  const candidates = [...game.zipPathCandidates];
+
+  // Source-branch Pages mode often uses CDN js-dos and root-level zip files.
+  if (wdosboxUrl === CDN_WDOSBOX_URL) {
+    return candidates.reverse();
+  }
+
+  return candidates;
+}
+
+async function extractGameZip(fs, game) {
+  const pathCandidates = resolveZipCandidates(game);
   let lastError = null;
   for (const path of pathCandidates) {
     const canUse = await isZipCandidateAvailable(path);
@@ -447,7 +464,7 @@ async function startGame(gameId) {
     const { fs, main } = await createDos(canvas);
 
     setStatus(`${game.name}: 게임 파일 압축 해제 중...`);
-    await extractGameZip(fs, game.zipPathCandidates);
+    await extractGameZip(fs, game);
 
     setStatus(`${game.name}: 게임 실행 중...`);
     await main(game.commands);
