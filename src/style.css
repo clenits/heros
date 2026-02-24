@@ -34,6 +34,19 @@ body {
   gap: 16px;
 }
 
+.layout--playing {
+  width: 100%;
+  max-width: 1200px;
+  padding: 8px;
+  gap: 8px;
+}
+
+.layout--playing .header,
+.layout--playing .tips,
+.layout--playing .status {
+  display: none;
+}
+
 .header h1 {
   margin: 0;
   font-size: clamp(1.1rem, 3.2vw, 1.7rem);
@@ -148,33 +161,9 @@ body {
   touch-action: manipulation;
 }
 
-.vkey--wide {
-  grid-column: 1 / -1;
-}
-
 .vkey--active {
   background: linear-gradient(180deg, #2d5077, #1f3852);
   border-color: #4e7aa5;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-}
-
-.actions button {
-  border: 1px solid #2d3f57;
-  background: linear-gradient(180deg, #1f2b3b, #16202e);
-  color: #e6edf3;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.actions button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .tips p {

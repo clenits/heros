@@ -59,8 +59,6 @@ const VIRTUAL_KEY_CODE = {
   ArrowRight: 102,
   ArrowDown: 98,
   Enter: 13,
-  Escape: 27,
-  Space: 32,
 };
 
 const state = {
@@ -71,13 +69,12 @@ const state = {
   restoreAddEventListener: null,
 };
 
+const layout = document.querySelector(".layout");
 const canvas = document.querySelector("#game-canvas");
 const selector = document.querySelector("#selector");
 const gameButtons = Array.from(document.querySelectorAll(".selector__button"));
 const playArea = document.querySelector("#play-area");
 const virtualButtons = Array.from(document.querySelectorAll(".vkey"));
-const actions = document.querySelector("#actions");
-const fullscreenBtn = document.querySelector("#fullscreen-btn");
 const status = document.querySelector("#status");
 const pressedVirtualButtons = new Map();
 
@@ -209,14 +206,14 @@ async function createDos(canvasEl) {
 }
 
 function showGameArea() {
+  if (layout) {
+    layout.classList.add("layout--playing");
+  }
   if (selector) {
     selector.classList.add("hidden");
   }
   if (playArea) {
     playArea.classList.remove("hidden");
-  }
-  if (actions) {
-    actions.classList.remove("hidden");
   }
   updatePlayAreaLayout();
 }
@@ -236,31 +233,92 @@ function updatePlayAreaLayout() {
   playArea.classList.toggle("play-area--portrait", !isLandscape);
 }
 
+function createMouseEvent(type, button) {
+  if (!canvas) {
+    return null;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  const clientX = rect.left + rect.width / 2;
+  const clientY = rect.top + rect.height / 2;
+  const buttons = type === "mouseup" ? 0 : button === 2 ? 2 : 1;
+
+  return new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    button,
+    buttons,
+    clientX,
+    clientY,
+  });
+}
+
+function sendMouseButton(type, button) {
+  if (!canvas) {
+    return;
+  }
+  const event = createMouseEvent(type, button);
+  if (!event) {
+    return;
+  }
+  canvas.dispatchEvent(event);
+}
+
 function pressVirtualButton(button) {
-  const keyName = button.dataset.key;
-  if (!keyName) {
+  if (button.dataset.action === "fullscreen") {
+    button.classList.add("vkey--active");
+    toggleFullscreen();
+    window.setTimeout(() => {
+      button.classList.remove("vkey--active");
+    }, 120);
     return;
   }
-  const code = VIRTUAL_KEY_CODE[keyName];
-  if (!code) {
-    return;
-  }
+
   if (pressedVirtualButtons.has(button)) {
     return;
   }
 
-  pressedVirtualButtons.set(button, code);
-  button.classList.add("vkey--active");
-  sendMappedKey("keydown", code);
-}
-
-function releaseVirtualButton(button) {
-  const code = pressedVirtualButtons.get(button);
-  if (!code) {
+  const keyName = button.dataset.key;
+  if (keyName) {
+    const code = VIRTUAL_KEY_CODE[keyName];
+    if (!code) {
+      return;
+    }
+    pressedVirtualButtons.set(button, {
+      kind: "key",
+      value: code,
+    });
+    button.classList.add("vkey--active");
+    sendMappedKey("keydown", code);
     return;
   }
 
-  sendMappedKey("keyup", code);
+  const mouseName = button.dataset.mouse;
+  if (mouseName) {
+    const mouseButton = mouseName === "right" ? 2 : 0;
+    pressedVirtualButtons.set(button, {
+      kind: "mouse",
+      value: mouseButton,
+    });
+    button.classList.add("vkey--active");
+    sendMouseButton("mousedown", mouseButton);
+  }
+}
+
+function releaseVirtualButton(button) {
+  const payload = pressedVirtualButtons.get(button);
+  if (!payload) {
+    button.classList.remove("vkey--active");
+    return;
+  }
+
+  if (payload.kind === "key") {
+    sendMappedKey("keyup", payload.value);
+  } else if (payload.kind === "mouse") {
+    sendMouseButton("mouseup", payload.value);
+  }
+
   pressedVirtualButtons.delete(button);
   button.classList.remove("vkey--active");
 }
@@ -327,14 +385,14 @@ async function startGame(gameId) {
     state.started = false;
     state.selectedGameId = null;
     disableGameSelection(false);
+    if (layout) {
+      layout.classList.remove("layout--playing");
+    }
     if (selector) {
       selector.classList.remove("hidden");
     }
     if (playArea) {
       playArea.classList.add("hidden");
-    }
-    if (actions) {
-      actions.classList.add("hidden");
     }
     if (state.restoreAddEventListener) {
       state.restoreAddEventListener();
