@@ -16,6 +16,7 @@
 html,
 body {
   margin: 0;
+  height: 100%;
   min-height: 100%;
   background:
     radial-gradient(circle at top, #182131 0%, #080a0f 65%),
@@ -24,6 +25,12 @@ body {
 
 body {
   min-height: 100vh;
+}
+
+body.playing {
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .layout {
@@ -37,8 +44,10 @@ body {
 .layout--playing {
   width: 100%;
   max-width: 1200px;
+  height: 100dvh;
   padding: 8px;
   gap: 8px;
+  overflow: hidden;
 }
 
 .layout--playing .header,
@@ -99,13 +108,22 @@ body {
   align-items: start;
 }
 
+.layout--playing .play-area {
+  height: calc(100dvh - 16px);
+  align-content: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
 .play-area--landscape {
-  grid-template-columns: minmax(0, 1fr) 180px;
+  grid-template-columns: auto 180px;
+  justify-items: center;
 }
 
 .play-area--portrait {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto;
+  grid-template-columns: auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-items: center;
 }
 
 .mobile-controls {
@@ -115,6 +133,14 @@ body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+}
+
+.play-area--landscape .mobile-controls {
+  width: 180px;
+}
+
+.play-area--portrait .mobile-controls {
+  width: min(calc(100vw - 24px), 560px);
 }
 
 .dpad {

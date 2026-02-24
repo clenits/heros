@@ -74,9 +74,17 @@ const canvas = document.querySelector("#game-canvas");
 const selector = document.querySelector("#selector");
 const gameButtons = Array.from(document.querySelectorAll(".selector__button"));
 const playArea = document.querySelector("#play-area");
+const screen = document.querySelector("#screen");
+const mobileControls = document.querySelector("#mobile-controls");
 const virtualButtons = Array.from(document.querySelectorAll(".vkey"));
 const status = document.querySelector("#status");
 const pressedVirtualButtons = new Map();
+
+const GAME_ASPECT = 4 / 3;
+const PLAY_PADDING = 16;
+const PLAY_GAP = 12;
+const FALLBACK_CONTROLS_WIDTH = 180;
+const FALLBACK_CONTROLS_HEIGHT = 120;
 
 function setStatus(message) {
   if (status) {
@@ -209,6 +217,7 @@ function showGameArea() {
   if (layout) {
     layout.classList.add("layout--playing");
   }
+  document.body.classList.add("playing");
   if (selector) {
     selector.classList.add("hidden");
   }
@@ -224,13 +233,60 @@ function disableGameSelection(disabled) {
   });
 }
 
+function fitRect(maxWidth, maxHeight, aspect) {
+  let width = maxWidth;
+  let height = width / aspect;
+
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * aspect;
+  }
+
+  return {
+    width: Math.max(1, Math.floor(width)),
+    height: Math.max(1, Math.floor(height)),
+  };
+}
+
 function updatePlayAreaLayout() {
-  if (!playArea) {
+  if (!playArea || !screen || !mobileControls || !canvas) {
     return;
   }
+
   const isLandscape = window.innerWidth > window.innerHeight;
   playArea.classList.toggle("play-area--landscape", isLandscape);
   playArea.classList.toggle("play-area--portrait", !isLandscape);
+
+  const viewportWidth = Math.max(1, window.innerWidth);
+  const viewportHeight = Math.max(1, window.innerHeight);
+
+  let availableWidth = viewportWidth - PLAY_PADDING * 2;
+  let availableHeight = viewportHeight - PLAY_PADDING * 2;
+
+  if (isLandscape) {
+    const controlsWidth = Math.max(
+      FALLBACK_CONTROLS_WIDTH,
+      Math.ceil(mobileControls.getBoundingClientRect().width || 0),
+    );
+    availableWidth = viewportWidth - PLAY_PADDING * 2 - PLAY_GAP - controlsWidth;
+  } else {
+    const controlsHeight = Math.max(
+      FALLBACK_CONTROLS_HEIGHT,
+      Math.ceil(mobileControls.getBoundingClientRect().height || 0),
+    );
+    availableHeight = viewportHeight - PLAY_PADDING * 2 - PLAY_GAP - controlsHeight;
+  }
+
+  const fit = fitRect(
+    Math.max(120, availableWidth),
+    Math.max(120, availableHeight),
+    GAME_ASPECT,
+  );
+
+  screen.style.width = `${fit.width}px`;
+  screen.style.height = `${fit.height}px`;
+  canvas.style.width = `${fit.width}px`;
+  canvas.style.height = `${fit.height}px`;
 }
 
 function createMouseEvent(type, button) {
@@ -329,9 +385,35 @@ function releaseAllVirtualButtons() {
   });
 }
 
+async function isZipCandidateAvailable(path) {
+  try {
+    const response = await fetch(path, {
+      method: "HEAD",
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return false;
+    }
+
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    if (contentType.includes("text/html")) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 async function extractGameZip(fs, pathCandidates) {
   let lastError = null;
   for (const path of pathCandidates) {
+    const canUse = await isZipCandidateAvailable(path);
+    if (!canUse) {
+      continue;
+    }
+
     try {
       await fs.extract(path);
       return;
@@ -378,6 +460,7 @@ async function startGame(gameId) {
     document.addEventListener("keydown", onDocumentKeyDown);
     document.addEventListener("keyup", onDocumentKeyUp);
 
+    updatePlayAreaLayout();
     setStatus(`${game.name}: 실행됨`);
   } catch (error) {
     console.error(error);
@@ -388,6 +471,7 @@ async function startGame(gameId) {
     if (layout) {
       layout.classList.remove("layout--playing");
     }
+    document.body.classList.remove("playing");
     if (selector) {
       selector.classList.remove("hidden");
     }
@@ -441,6 +525,7 @@ virtualButtons.forEach((button) => {
 
 window.addEventListener("resize", updatePlayAreaLayout);
 window.addEventListener("orientationchange", updatePlayAreaLayout);
+document.addEventListener("fullscreenchange", updatePlayAreaLayout);
 window.addEventListener("blur", releaseAllVirtualButtons);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
