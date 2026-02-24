@@ -18,9 +18,12 @@ function resolveBaseUrl() {
 const BASE_URL = resolveBaseUrl();
 const LOCAL_JSDOS_URL = `${BASE_URL}static/js-dos/js-dos.js`;
 const LOCAL_WDOSBOX_URL = `${BASE_URL}static/js-dos/wdosbox.js`;
+const LOCAL_WDOSBOX_EMTERP_URL = `${BASE_URL}static/js-dos/wdosbox-emterp.js`;
 const CDN_JSDOS_URL = "https://cdn.jsdelivr.net/npm/js-dos@6.22.60/dist/js-dos.js";
 const CDN_WDOSBOX_URL =
   "https://cdn.jsdelivr.net/npm/js-dos@6.22.60/dist/wdosbox.js";
+const CDN_WDOSBOX_EMTERP_URL =
+  "https://cdn.jsdelivr.net/npm/js-dos@6.22.60/dist/wdosbox-emterp.js";
 
 const GAMES = {
   heros: {
@@ -90,6 +93,9 @@ const SECONDARY_MOUSE_BUTTON = 2;
 const TAP_MAX_MOVEMENT = 18;
 const TAP_MAX_DURATION = 450;
 const DOUBLE_TAP_MAX_DELAY = 260;
+const SCRIPT_LOAD_TIMEOUT = 12000;
+const DOS_READY_TIMEOUT = 45000;
+const DOS_PROGRESS_STALL_TIMEOUT = 15000;
 
 const touchState = {
   pointerId: null,
@@ -114,16 +120,39 @@ function setStatus(message) {
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      script.remove();
+      reject(new Error(`스크립트 로드 타임아웃: ${src}`));
+    }, SCRIPT_LOAD_TIMEOUT);
+
     script.src = src;
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`스크립트 로드 실패: ${src}`));
+    script.onload = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      window.clearTimeout(timeoutId);
+      resolve();
+    };
+    script.onerror = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      window.clearTimeout(timeoutId);
+      reject(new Error(`스크립트 로드 실패: ${src}`));
+    };
     document.head.append(script);
   });
 }
 
 let dosScriptLoaded = null;
-let wdosboxUrl = LOCAL_WDOSBOX_URL;
 let usingCdnRuntime = false;
 // Bump this string only when runtime cache must be invalidated across deployments.
 const RUNTIME_CACHE_BUSTER = "runtime-v1";
@@ -135,11 +164,9 @@ async function loadJsDos() {
     dosScriptLoaded = (async () => {
       try {
         await loadScript(`${LOCAL_JSDOS_URL}?cb=${RUNTIME_CACHE_BUSTER}`);
-        wdosboxUrl = `${LOCAL_WDOSBOX_URL}?cb=${RUNTIME_CACHE_BUSTER}`;
         usingCdnRuntime = false;
       } catch (localError) {
         await loadScript(`${CDN_JSDOS_URL}?cb=${RUNTIME_CACHE_BUSTER}`);
-        wdosboxUrl = `${CDN_WDOSBOX_URL}?cb=${RUNTIME_CACHE_BUSTER}`;
         usingCdnRuntime = true;
       }
     })().catch((error) => {
@@ -148,6 +175,22 @@ async function loadJsDos() {
     });
   }
   return dosScriptLoaded;
+}
+
+function getRuntimeCandidates() {
+  const localCandidates = [
+    `${LOCAL_WDOSBOX_URL}?cb=${RUNTIME_CACHE_BUSTER}`,
+    `${LOCAL_WDOSBOX_EMTERP_URL}?cb=${RUNTIME_CACHE_BUSTER}`,
+  ];
+  const cdnCandidates = [
+    `${CDN_WDOSBOX_URL}?cb=${RUNTIME_CACHE_BUSTER}`,
+    `${CDN_WDOSBOX_EMTERP_URL}?cb=${RUNTIME_CACHE_BUSTER}`,
+  ];
+
+  if (usingCdnRuntime) {
+    return [...cdnCandidates, ...localCandidates];
+  }
+  return [...localCandidates, ...cdnCandidates];
 }
 
 function deleteIndexedDb(name) {
@@ -243,8 +286,7 @@ function onDocumentKeyUp(event) {
   sendMappedKey("keyup", code);
 }
 
-async function createDosRuntime(canvasEl) {
-  await loadJsDos();
+async function createDosRuntime(canvasEl, runtimeUrl) {
   return new Promise((resolve, reject) => {
     if (!window.Dos) {
       reject(new Error("js-dos 초기화 실패"));
@@ -252,36 +294,88 @@ async function createDosRuntime(canvasEl) {
     }
 
     let settled = false;
-    const timeout = window.setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        reject(new Error("js-dos 준비 타임아웃"));
-      }
-    }, 20000);
+    let lastProgressAt = Date.now();
 
-    window
-      .Dos(canvasEl, {
-        wdosboxUrl,
-      })
-      .ready((fs, main) => {
+    const fail = (error) => {
       if (settled) {
         return;
       }
       settled = true;
       window.clearTimeout(timeout);
-      resolve({ fs, main });
+      window.clearInterval(stallTimer);
+      reject(error instanceof Error ? error : new Error(String(error)));
+    };
+
+    const timeout = window.setTimeout(() => {
+      fail(new Error("js-dos 준비 타임아웃"));
+    }, DOS_READY_TIMEOUT);
+
+    const stallTimer = window.setInterval(() => {
+      if (Date.now() - lastProgressAt > DOS_PROGRESS_STALL_TIMEOUT) {
+        fail(new Error("js-dos 로딩 진행 멈춤"));
+      }
+    }, 1000);
+
+    try {
+      window
+      .Dos(canvasEl, {
+        wdosboxUrl: runtimeUrl,
+        onprogress: (stage, total, loaded) => {
+          lastProgressAt = Date.now();
+          if (total > 0) {
+            const percent = Math.max(
+              0,
+              Math.min(99, Math.floor((loaded / total) * 100)),
+            );
+            setStatus(`에뮬레이터 로딩 중... ${percent}%`);
+          } else {
+            setStatus("에뮬레이터 로딩 중...");
+          }
+        },
+        onerror: (message) => {
+          fail(new Error(`js-dos 오류: ${message}`));
+        },
+      })
+      .ready((fs, main) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(timeout);
+        window.clearInterval(stallTimer);
+        resolve({ fs, main });
       });
+    } catch (error) {
+      fail(error);
+    }
   });
+}
+
+async function createDosWithCandidates(canvasEl) {
+  await loadJsDos();
+  const candidates = getRuntimeCandidates();
+  let lastError = null;
+
+  for (const runtimeUrl of candidates) {
+    try {
+      return await createDosRuntime(canvasEl, runtimeUrl);
+    } catch (error) {
+      lastError = error;
+      console.warn("dos runtime candidate failed", runtimeUrl, error);
+    }
+  }
+
+  throw lastError || new Error("사용 가능한 dos 런타임을 찾지 못했습니다.");
 }
 
 async function createDos(canvasEl) {
   try {
-    return await createDosRuntime(canvasEl);
+    return await createDosWithCandidates(canvasEl);
   } catch (firstError) {
     setStatus("에뮬레이터 캐시 복구 중...");
     await clearJsDosRuntimeCache();
     dosScriptLoaded = null;
-    return await createDosRuntime(canvasEl);
+    return await createDosWithCandidates(canvasEl);
   }
 }
 
