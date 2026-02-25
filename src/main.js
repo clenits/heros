@@ -92,6 +92,7 @@ const PRIMARY_MOUSE_BUTTON = 0;
 const SECONDARY_MOUSE_BUTTON = 2;
 const TAP_MAX_MOVEMENT = 18;
 const TAP_MAX_DURATION = 450;
+const TOUCH_CURSOR_MOVE_THRESHOLD = 12;
 const SCRIPT_LOAD_TIMEOUT = 12000;
 const DOS_READY_TIMEOUT = 45000;
 const DOS_PROGRESS_STALL_TIMEOUT = 15000;
@@ -506,6 +507,14 @@ function triggerLeftClickAt(clientX, clientY) {
   sendMouseButton("mouseup", PRIMARY_MOUSE_BUTTON, clientX, clientY);
 }
 
+function consumeTouchPointerEvent(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  if (typeof event.stopImmediatePropagation === "function") {
+    event.stopImmediatePropagation();
+  }
+}
+
 function pressVirtualButton(button) {
   if (button.dataset.action === "fullscreen") {
     button.classList.add("vkey--active");
@@ -670,6 +679,10 @@ if (canvas) {
     event.preventDefault();
   });
 
+  canvas.addEventListener("dragstart", (event) => {
+    event.preventDefault();
+  });
+
   canvas.addEventListener("pointerdown", (event) => {
     if (event.pointerType !== "touch") {
       return;
@@ -678,7 +691,7 @@ if (canvas) {
       return;
     }
 
-    event.preventDefault();
+    consumeTouchPointerEvent(event);
     touchState.pointerId = event.pointerId;
     touchState.startX = event.clientX;
     touchState.startY = event.clientY;
@@ -692,7 +705,7 @@ if (canvas) {
     }
 
     canvas.focus?.();
-  });
+  }, { capture: true });
 
   canvas.addEventListener("pointermove", (event) => {
     if (event.pointerType !== "touch") {
@@ -702,21 +715,22 @@ if (canvas) {
       return;
     }
 
-    event.preventDefault();
+    consumeTouchPointerEvent(event);
     touchState.clientX = event.clientX;
     touchState.clientY = event.clientY;
-    if (
-      distance(
-        touchState.startX,
-        touchState.startY,
-        event.clientX,
-        event.clientY,
-      ) > TAP_MAX_MOVEMENT
-    ) {
+    const movedDistance = distance(
+      touchState.startX,
+      touchState.startY,
+      event.clientX,
+      event.clientY,
+    );
+    if (movedDistance > TAP_MAX_MOVEMENT) {
       touchState.moved = true;
     }
-    sendMouseMove(event.clientX, event.clientY);
-  });
+    if (movedDistance > TOUCH_CURSOR_MOVE_THRESHOLD) {
+      sendMouseMove(event.clientX, event.clientY);
+    }
+  }, { capture: true });
 
   const releaseTouchPointer = (event) => {
     if (event.pointerType !== "touch") {
@@ -726,7 +740,7 @@ if (canvas) {
       return;
     }
 
-    event.preventDefault();
+    consumeTouchPointerEvent(event);
 
     const isTap =
       !touchState.moved && Date.now() - touchState.startedAt <= TAP_MAX_DURATION;
@@ -746,12 +760,13 @@ if (canvas) {
     if (touchState.pointerId !== event.pointerId) {
       return;
     }
+    consumeTouchPointerEvent(event);
     touchState.pointerId = null;
     touchState.moved = false;
   };
 
-  canvas.addEventListener("pointerup", releaseTouchPointer);
-  canvas.addEventListener("pointercancel", cancelTouchPointer);
+  canvas.addEventListener("pointerup", releaseTouchPointer, { capture: true });
+  canvas.addEventListener("pointercancel", cancelTouchPointer, { capture: true });
 }
 gameButtons.forEach((button) => {
   button.addEventListener("click", () => {
