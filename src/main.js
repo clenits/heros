@@ -166,7 +166,7 @@ function triggerLeftClickAt(clientX, clientY) {
   sendMouseButton("mouseup", MOUSE_BUTTON.primary, clientX, clientY);
 }
 
-function consumeTouchPointerEvent(event) {
+function consumeTouchEvent(event) {
   event.preventDefault();
   event.stopPropagation();
   if (typeof event.stopImmediatePropagation === "function") {
@@ -316,6 +316,30 @@ if (canvas) {
     event.preventDefault();
   });
 
+  const consumeNativeTouchEvent = (event) => {
+    if (!state.inputReady) {
+      return;
+    }
+    consumeTouchEvent(event);
+  };
+
+  canvas.addEventListener("touchstart", consumeNativeTouchEvent, {
+    capture: true,
+    passive: false,
+  });
+  canvas.addEventListener("touchmove", consumeNativeTouchEvent, {
+    capture: true,
+    passive: false,
+  });
+  canvas.addEventListener("touchend", consumeNativeTouchEvent, {
+    capture: true,
+    passive: false,
+  });
+  canvas.addEventListener("touchcancel", consumeNativeTouchEvent, {
+    capture: true,
+    passive: false,
+  });
+
   canvas.addEventListener(
     "pointerdown",
     (event) => {
@@ -329,7 +353,7 @@ if (canvas) {
         return;
       }
 
-      consumeTouchPointerEvent(event);
+      consumeTouchEvent(event);
       touchState.pointerId = event.pointerId;
       touchState.startX = event.clientX;
       touchState.startY = event.clientY;
@@ -360,7 +384,7 @@ if (canvas) {
         return;
       }
 
-      consumeTouchPointerEvent(event);
+      consumeTouchEvent(event);
       touchState.clientX = event.clientX;
       touchState.clientY = event.clientY;
       const movedDistance = distance(
@@ -372,7 +396,10 @@ if (canvas) {
       if (movedDistance > TOUCH_CONFIG.tapMaxMovement) {
         touchState.moved = true;
       }
-      if (movedDistance > TOUCH_CONFIG.cursorMoveThreshold) {
+      if (
+        TOUCH_CONFIG.enableDragMove &&
+        movedDistance > TOUCH_CONFIG.cursorMoveThreshold
+      ) {
         sendMouseMove(event.clientX, event.clientY);
       }
     },
@@ -390,7 +417,7 @@ if (canvas) {
       return;
     }
 
-    consumeTouchPointerEvent(event);
+    consumeTouchEvent(event);
 
     const isTap =
       !touchState.moved &&
@@ -414,7 +441,7 @@ if (canvas) {
     if (touchState.pointerId !== event.pointerId) {
       return;
     }
-    consumeTouchPointerEvent(event);
+    consumeTouchEvent(event);
     touchState.pointerId = null;
     touchState.moved = false;
   };

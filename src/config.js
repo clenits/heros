@@ -83,6 +83,7 @@ export const TOUCH_CONFIG = {
   tapMaxMovement: 18,
   tapMaxDuration: 450,
   cursorMoveThreshold: 12,
+  enableDragMove: false,
 };
 
 export const RUNTIME_TIMEOUTS = {
