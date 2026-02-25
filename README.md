@@ -36,7 +36,9 @@ npm run preview
 
 ## 현재 부트 커맨드
 
-`/Users/dawoonlee/Documents/Github/heros/src/main.js`의 `COMMANDS`:
+`src/main.js`의 게임별 커맨드:
+
+`영걸전 (heros.zip)`
 
 ```txt
 C:
@@ -44,4 +46,11 @@ cd GAME
 HERO
 ```
 
-실행 문제가 있으면 `HERO`를 `MAIN.EXE` 등으로 바꿔 테스트하면 됩니다.
+`삼국지4PK (Sam4PK.zip)`
+
+```txt
+C:
+sam4
+```
+
+`Sam4PK.zip`은 루트에 실행 파일이 있으므로 `cd GAME`을 사용하지 않습니다.

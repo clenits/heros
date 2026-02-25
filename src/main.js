@@ -40,7 +40,7 @@ const GAMES = {
       `${BASE_URL}static/game/Sam4PK.zip`,
       `${BASE_URL}Sam4PK.zip`,
     ],
-    commands: ["-c", "C:", "-c", "cd GAME", "-c", "sam4"],
+    commands: ["-c", "C:", "-c", "sam4"],
   },
 };
 
@@ -632,7 +632,11 @@ async function startGame(gameId) {
     setStatus(`${game.name}: 실행됨`);
   } catch (error) {
     console.error(error);
-    setStatus("실패: 콘솔 로그를 확인하세요.");
+    const reason =
+      error instanceof Error && error.message
+        ? error.message
+        : "콘솔 로그를 확인하세요.";
+    setStatus(`실패: ${reason}`);
     state.started = false;
     state.selectedGameId = null;
     disableGameSelection(false);
